@@ -1,0 +1,28 @@
+id: q5
+namespace: zoomcamp
+description: |
+  Count rows for Yellow Taxi March 2021 CSV
+
+inputs:
+  - id: year
+    type: STRING
+    defaults: "2021"
+  - id: month
+    type: STRING
+    defaults: "03"
+  - id: taxi
+    type: STRING
+    defaults: yellow
+
+tasks:
+  - id: extract_and_count
+    type: io.kestra.plugin.scripts.shell.Commands
+    taskRunner:
+      type: io.kestra.plugin.core.runner.Process
+    commands:
+      - |
+        rows=$(wget -qO- https://github.com/DataTalksClub/nyc-tlc-data/releases/download/{{inputs.taxi}}/{{inputs.taxi}}_tripdata_{{inputs.year}}-{{inputs.month}}.csv.gz \
+          | gunzip \
+          | tail -n +2 \
+          | wc -l)
+        echo "TOTAL_ROWS=$rows"

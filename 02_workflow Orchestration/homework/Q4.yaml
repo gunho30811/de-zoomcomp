@@ -1,0 +1,32 @@
+id: q4
+namespace: zoomcamp
+description: |
+  Count total rows for Yellow Taxi CSV files in year 2020
+
+inputs:
+  - id: year
+    type: STRING
+    defaults: "2020"
+  - id: taxi
+    type: STRING
+    defaults: green
+
+variables:
+  pattern: "yellow_tripdata_{{inputs.year}}-*.csv"
+
+tasks:
+  - id: extract_and_count
+    type: io.kestra.plugin.scripts.shell.Commands
+    taskRunner:
+      type: io.kestra.plugin.core.runner.Process
+    commands:
+      - |
+        total=0
+        for m in 01 02 03 04 05 06 07 08 09 10 11 12; do
+          rows=$(wget -qO- https://github.com/DataTalksClub/nyc-tlc-data/releases/download/{{inputs.taxi}}/{{inputs.taxi}}_tripdata_{{inputs.year}}-$m.csv.gz \
+            | gunzip \
+            | tail -n +2 \
+            | wc -l)
+          total=$((total + rows))
+        done
+        echo "TOTAL_ROWS=$total"

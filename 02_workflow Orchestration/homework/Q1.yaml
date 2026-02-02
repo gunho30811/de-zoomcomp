@@ -1,0 +1,31 @@
+id: q1_yellow_2020_12_file_size
+namespace: zoomcamp
+
+inputs:
+  - id: taxi
+    type: STRING
+    defaults: yellow
+  - id: year
+    type: STRING
+    defaults: "2020"
+  - id: month
+    type: STRING
+    defaults: "12"
+
+tasks:
+  - id: extract
+    type: io.kestra.plugin.scripts.shell.Commands
+    env:
+      TAXI: "{{ inputs.taxi }}"
+      YEAR: "{{ inputs.year }}"
+      MONTH: "{{ inputs.month }}"
+    commands:
+      - apt-get update -y
+      - apt-get install -y wget
+      - |
+        FILE="${TAXI}_tripdata_${YEAR}-${MONTH}.csv"
+        URL="https://github.com/DataTalksClub/nyc-tlc-data/releases/download/${TAXI}/${FILE}.gz"
+
+        wget "${URL}"
+        gunzip "${FILE}.gz"
+        ls -lh "${FILE}"

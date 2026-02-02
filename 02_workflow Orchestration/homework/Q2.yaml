@@ -1,0 +1,25 @@
+id: q2_file_render
+namespace: zoomcamp
+
+inputs:
+  - id: taxi
+    type: STRING
+    defaults: green
+  - id: year
+    type: STRING
+    defaults: "2020"
+  - id: month
+    type: STRING
+    defaults: "04"
+
+tasks:
+  - id: show_file
+    type: io.kestra.plugin.scripts.shell.Commands
+    env:
+      TAXI: "{{ inputs.taxi }}"
+      YEAR: "{{ inputs.year }}"
+      MONTH: "{{ inputs.month }}"
+    commands:
+      - |
+        FILE="${TAXI}_tripdata_${YEAR}-${MONTH}.csv"
+        echo "Rendered file name is: ${FILE}"
