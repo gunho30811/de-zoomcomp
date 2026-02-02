@@ -1,28 +1,69 @@
-id: q5
+id: q5_yellow_2021_03_answer
 namespace: zoomcamp
 description: |
-  Count rows for Yellow Taxi March 2021 CSV
+  Q5 - Count rows for Yellow Taxi March 2021 using GCS + BigQuery pipeline
 
 inputs:
+  - id: taxi
+    type: SELECT
+    values: [yellow, green]
+    defaults: yellow
+
   - id: year
     type: STRING
     defaults: "2021"
+
   - id: month
     type: STRING
     defaults: "03"
-  - id: taxi
-    type: STRING
-    defaults: yellow
+
+variables:
+  file: "{{inputs.taxi}}_tripdata_{{inputs.year}}-{{inputs.month}}.csv"
+  gcs_file: "gs://{{kv('GCP_BUCKET_NAME')}}/{{vars.file}}"
+  table: "{{kv('GCP_DATASET')}}.{{inputs.taxi}}_tripdata_{{inputs.year}}_{{inputs.month}}"
 
 tasks:
-  - id: extract_and_count
+  - id: extract
     type: io.kestra.plugin.scripts.shell.Commands
+    outputFiles:
+      - "*.csv"
     taskRunner:
       type: io.kestra.plugin.core.runner.Process
     commands:
-      - |
-        rows=$(wget -qO- https://github.com/DataTalksClub/nyc-tlc-data/releases/download/{{inputs.taxi}}/{{inputs.taxi}}_tripdata_{{inputs.year}}-{{inputs.month}}.csv.gz \
-          | gunzip \
-          | tail -n +2 \
-          | wc -l)
-        echo "TOTAL_ROWS=$rows"
+      - wget -qO- https://github.com/DataTalksClub/nyc-tlc-data/releases/download/{{inputs.taxi}}/{{render(vars.file)}}.gz | gunzip > {{render(vars.file)}}
+
+  - id: upload_to_gcs
+    type: io.kestra.plugin.gcp.gcs.Upload
+    from: "{{outputs.extract.outputFiles[vars.file]}}"
+    to: "{{render(vars.gcs_file)}}"
+
+  - id: bq_external_table
+    type: io.kestra.plugin.gcp.bigquery.Query
+    sql: |
+      CREATE OR REPLACE EXTERNAL TABLE `{{kv('GCP_PROJECT_ID')}}.{{render(vars.table)}}_ext`
+      OPTIONS (
+        format = 'CSV',
+        uris = ['{{render(vars.gcs_file)}}'],
+        skip_leading_rows = 1
+      );
+
+  - id: bq_materialize
+    type: io.kestra.plugin.gcp.bigquery.Query
+    sql: |
+      CREATE OR REPLACE TABLE `{{kv('GCP_PROJECT_ID')}}.{{render(vars.table)}}` AS
+      SELECT *
+      FROM `{{kv('GCP_PROJECT_ID')}}.{{render(vars.table)}}_ext`;
+
+  - id: q5_answer
+    type: io.kestra.plugin.gcp.bigquery.Query
+    sql: |
+      SELECT COUNT(*) AS row_count
+      FROM `{{kv('GCP_PROJECT_ID')}}.{{render(vars.table)}}`;
+
+pluginDefaults:
+  - type: io.kestra.plugin.gcp
+    values:
+      serviceAccount: "{{kv('GCP_CREDS')}}"
+      projectId: "{{kv('GCP_PROJECT_ID')}}"
+      location: "{{kv('GCP_LOCATION')}}"
+      bucket: "{{kv('GCP_BUCKET_NAME')}}"
